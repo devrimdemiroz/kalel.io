@@ -1,0 +1,40 @@
+<div class="modal is-active" x-data="rolloutDialog" x-show="showRolloutDialog" x-cloak
+  role="dialog" aria-modal="true" aria-labelledby="rolloutTitle" @keydown.escape.window="if (!busy) showRolloutDialog = false">
+  <div class="modal-background" @click="if (!busy) showRolloutDialog = false"></div>
+  <div class="modal-card">
+    <header class="modal-card-head">
+      <p class="modal-card-title" id="rolloutTitle">Deploy YAML</p>
+      <button class="button is-light" type="button" aria-label="Close deployment dialog" @click="showRolloutDialog = false" :disabled="busy">Close</button>
+    </header>
+    <section class="modal-card-body">
+      <p class="mb-3">Target namespace: <strong x-text="namespace"></strong>. Preview validates a single Deployment without saving it.</p>
+      <div class="notification is-warning" x-show="!rolloutsEnabled || cfg.refreshMode === 'offline'" x-cloak>
+        Rollouts are unavailable while offline or disabled by the server.
+      </div>
+      <label class="label" for="deploymentManifest">Deployment YAML</label>
+      <textarea class="textarea is-family-monospace" id="deploymentManifest" rows="14" x-model="manifest"
+        :disabled="busy" spellcheck="false" aria-describedby="rolloutHelp"></textarea>
+      <p class="help mb-3" id="rolloutHelp">Review the server dry-run preview before choosing Apply. Editing the YAML or changing namespace requires a new preview.</p>
+      <div class="notification is-danger" role="alert" x-show="error" x-cloak x-text="error"></div>
+      <div x-show="preview" x-cloak>
+        <h3 class="title is-5 mt-4">Dry-run preview — not applied</h3>
+        <pre x-text="preview" tabindex="0" aria-label="Deployment dry-run preview"></pre>
+      </div>
+      <div class="notification is-warning mt-3" x-show="confirmApply" x-cloak>
+        <p>Apply this Deployment to <strong x-text="previewNamespace"></strong>? This changes the cluster.</p>
+        <p>Once submitted, cancelling or closing the dialog cannot undo the change.</p>
+      </div>
+      <div x-show="result" x-cloak role="status">
+        <h3 class="title is-5 mt-4">Deployment applied</h3>
+        <pre x-text="result" tabindex="0" aria-label="Applied Deployment"></pre>
+        <p>Refresh the view to see the latest resources if automatic updates are stopped.</p>
+      </div>
+    </section>
+    <footer class="modal-card-foot is-flex-wrap-wrap">
+      <button class="button is-light" type="button" @click="submit(true)" :disabled="!canPreview" :class="{ 'is-loading': busy && !confirmApply }">Dry-run preview</button>
+      <button class="button is-light" type="button" @click="confirmApply = true" :disabled="!canApply" x-show="!confirmApply" x-cloak>Apply…</button>
+      <button class="button is-light" type="button" @click="submit(false)" :disabled="!canApply" x-show="confirmApply" x-cloak :class="{ 'is-loading': busy }">Confirm Apply</button>
+      <button class="button is-light" type="button" @click="confirmApply = false" :disabled="busy" x-show="confirmApply" x-cloak>Cancel Apply</button>
+    </footer>
+  </div>
+</div>

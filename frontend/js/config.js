@@ -8,8 +8,22 @@
 /** @type {Config | null}*/
 let config = null
 
+/** @type {{ value: EdgeStyle, label: string }[]} */
+export const edgeStyles = [
+  { value: 'line', label: 'straight' },
+  { value: 'polyline', label: 'polyline' },
+  { value: 'quadratic', label: 'quadratic curve' },
+  { value: 'cubic', label: 'cubic curve' },
+  { value: 'cubic-horizontal', label: 'horizontal curve' },
+  { value: 'cubic-vertical', label: 'vertical curve' },
+]
+
 /** @type {Config}*/
 const defaultConfig = {
+  theme: 'dark',
+  whiteBackground: true,
+  edgeStyle: 'cubic-vertical',
+  refreshMode: 'live',
   debug: false,
   shortenNames: true,
   spacing: 100,
@@ -25,7 +39,6 @@ const defaultConfig = {
     'Service',
     'Ingress',
     // 'ConfigMap',
-    // 'Secret',
     // 'PersistentVolumeClaim',
     // 'HorizontalPodAutoscaler',
   ],
@@ -51,6 +64,12 @@ export function getConfig() {
   config = {
     ...defaultConfig,
     ...cfg,
+  }
+  // Offline only lasts for this page session, so reloading can always fetch initial data.
+  if (!['live', 'manual', '15s', '1m'].includes(config.refreshMode)) config.refreshMode = 'manual'
+  if (!edgeStyles.some(({ value }) => value === config?.edgeStyle)) {
+    console.error('💥 Unsupported saved edge style:', config.edgeStyle)
+    config.edgeStyle = defaultConfig.edgeStyle
   }
   return config || defaultConfig
 }

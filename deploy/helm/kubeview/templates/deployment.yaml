@@ -39,9 +39,13 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
+          {{- if .Values.enableRollouts }}
+            - name: ENABLE_ROLLOUTS
+              value: "true"
+          {{- end }}
           {{- if .Values.singleNamespace }}
             - name: SINGLE_NAMESPACE
-              value: {{ ternary .Release.Namespace .Values.singleNamespace (eq (toString .Values.singleNamespace) "true") }}
+              value: {{ include "kubeview.resourceNamespace" . | quote }}
           {{- end }}
           {{- if .Values.namespaceFilter }}
             - name: NAMESPACE_FILTER

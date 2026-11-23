@@ -1,0 +1,28 @@
+<div class="modal is-active" x-show="showAboutDialog" x-cloak id="aboutDialog">
+  <div class="modal-background" @click="showAboutDialog = false"></div>
+  <div class="modal-card better-shad">
+    <header class="modal-card-head py-3">
+      <p class="modal-card-title">About kalel.io</p>
+      <button class="delete" aria-label="close" @click="showAboutDialog = false"></button>
+    </header>
+    <div class="modal-content dark-blur">
+      <p class="title is-5">A Kubernetes resource map</p>
+      <p><strong>kalel.io is a fork of KubeView.</strong> Thank you to benc-uk and all KubeView contributors for creating and sharing the project.</p>
+      <p>KubeView is available under the MIT License. This fork preserves its open-source roots; we intend to keep kalel.io open source forever.</p>
+      <p>
+        <a href="https://github.com/benc-uk/kubeview" target="_blank" rel="noopener noreferrer">
+          github.com/benc-uk/kubeview
+        </a>
+      </p>
+      <hr />
+      <p><strong>Cluster</strong> <span x-text="serviceMetadata.clusterHost || 'Not connected'"></span></p>
+      <p><strong>Mode</strong> <span x-text="serviceMetadata.clusterMode || '—'"></span></p>
+      <p class="about-muted">
+        <strong>Version</strong> <span x-text="`${serviceMetadata.version} (${serviceMetadata.buildInfo})`"></span>
+      </p>
+    </div>
+    <footer class="modal-card-foot py-3 is-justify-content-flex-end">
+      <button class="button" @click="showAboutDialog = false">Close</button>
+    </footer>
+  </div>
+</div>

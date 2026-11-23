@@ -5,6 +5,7 @@
 package main
 
 import (
+	"log"
 	"os"
 	"strconv"
 )
@@ -12,10 +13,13 @@ import (
 // Config holds the configuration for the system
 type Config struct {
 	Port            int
+	BindAddress     string
 	NameSpaceFilter string
 	SingleNamespace string
 	Debug           bool
 	EnablePodLogs   bool
+	EnableRollouts  bool
+	DevMode         bool
 }
 
 // Parse the environment variables and return a Config struct
@@ -27,6 +31,8 @@ func getConfig() Config {
 	singleNamespace := ""
 	debug := false
 	enablePodLogs := true
+	enableRollouts := false
+	devMode := false
 
 	if portEnv := os.Getenv("PORT"); portEnv != "" {
 		if p, err := strconv.Atoi(portEnv); err == nil {
@@ -52,11 +58,26 @@ func getConfig() Config {
 		debug, _ = strconv.ParseBool(debugEnv)
 	}
 
+	if s := os.Getenv("ENABLE_ROLLOUTS"); s != "" {
+		enableRollouts, _ = strconv.ParseBool(s)
+	}
+
+	if s := os.Getenv("DEV_MODE"); s != "" {
+		if enabled, err := strconv.ParseBool(s); err == nil {
+			devMode = enabled
+		} else {
+			log.Println("💥 Invalid DEV_MODE: expected a boolean; development mode remains disabled")
+		}
+	}
+
 	return Config{
 		Port:            port,
+		BindAddress:     os.Getenv("BIND_ADDRESS"),
 		NameSpaceFilter: nameSpaceFilter,
 		SingleNamespace: singleNamespace,
 		Debug:           debug,
 		EnablePodLogs:   enablePodLogs,
+		EnableRollouts:  enableRollouts,
+		DevMode:         devMode,
 	}
 }

@@ -4,14 +4,54 @@
 
 declare type ResNode = {
   id: string
-  style: Record<string, string>
+  style: {
+    src: string
+    labelText: string
+    labelFill: string
+    visibility: 'visible' | 'hidden'
+    badges: Array<{ text: string; placement: string; offsetY: number }>
+  }
   data: {
     kind: string
     ip: string | null
+    filterVisible: boolean
+  }
+}
+
+declare type EdgeStyle = 'line' | 'polyline' | 'quadratic' | 'cubic' | 'cubic-horizontal' | 'cubic-vertical'
+
+declare type ContainerNode = {
+  id: string
+  combo?: string | null
+  style?: { visibility?: string; x?: number; y?: number }
+}
+
+declare type ComponentIdentity = {
+  key: string
+  label: string
+  supporting: boolean
+}
+
+declare type ComponentCombo = {
+  id: string
+  combo?: string
+  style: {
+    labelText: string
+    stroke: string
+    fill?: string
+    fillOpacity: number
+    strokeOpacity: number
+    labelOpacity: number
+    lineDash?: number[]
+    padding: number[]
   }
 }
 
 declare type Config = {
+  theme: 'dark' | 'light'
+  whiteBackground: boolean
+  edgeStyle: EdgeStyle
+  refreshMode: 'live' | 'manual' | 'offline' | '15s' | '1m'
   debug: boolean
   shortenNames: boolean
   resFilter: string[]
@@ -39,6 +79,7 @@ declare type Resource = {
   status: any
   subsets?: any // Only on Endpoints
   endpoints?: any // Only on EndpointSlices
+  ports?: Array<{ port?: number | null; protocol?: string }> // Only on EndpointSlices
   data?: any // For Secret and ConfigMap
 }
 

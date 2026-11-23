@@ -27,6 +27,10 @@ func (s *KubeviewAPI) AddRoutes(r *chi.Mux) {
 
 	// Serve the index.html file from the embedded frontend folder
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if s.config.DevMode {
+			w.Header().Set("Cache-Control", "no-store")
+		}
+
 		index, err := fs.ReadFile(frontendFS, "index.html")
 		if err != nil {
 			http.Error(w, "index.html not found", http.StatusNotFound)
@@ -40,6 +44,10 @@ func (s *KubeviewAPI) AddRoutes(r *chi.Mux) {
 	// Serve the embedded frontend folder, which contains static files, JS, CSS, images, etc.
 	// This is how the frontend is served, it's just static files embedded in the binary
 	r.HandleFunc("/public/*", func(w http.ResponseWriter, r *http.Request) {
+		if s.config.DevMode {
+			w.Header().Set("Cache-Control", "no-store")
+		}
+
 		http.StripPrefix("/public/", http.FileServer(http.FS(frontendFS))).ServeHTTP(w, r)
 	})
 
@@ -50,6 +58,7 @@ func (s *KubeviewAPI) AddRoutes(r *chi.Mux) {
 	r.Get("/api/namespaces", s.handleNamespaceList)
 	r.Get("/api/fetch/{namespace}", s.handleFetchData)
 	r.Get("/api/logs/{namespace}/{podname}", s.handlePodLogs)
+	r.Post("/api/rollout/{namespace}", s.handleRollout)
 }
 
 // Establish the SSE connection for streaming updates each client
@@ -62,7 +71,7 @@ func (s *KubeviewAPI) handleSSE(w http.ResponseWriter, r *http.Request) {
 
 	err := s.eventBroker.Stream(clientID, w, *r)
 	if err != nil {
-		log.Fatalln("💥 Error in SSE broker stream:", err)
+		log.Println("💥 Error in SSE broker stream:", err)
 		return
 	}
 }
@@ -108,11 +117,13 @@ func (s *KubeviewAPI) handleNamespaceList(w http.ResponseWriter, r *http.Request
 	}
 
 	res := NamespaceListResult{
-		ClusterHost: s.kubeService.ClusterHost,
-		Namespaces:  namespaces,
-		Version:     s.Version,
-		BuildInfo:   s.BuildInfo,
-		Mode:        s.kubeService.Mode,
+		ClusterHost:     s.kubeService.ClusterHost,
+		Namespaces:      namespaces,
+		Version:         s.Version,
+		BuildInfo:       s.BuildInfo,
+		Mode:            s.kubeService.Mode,
+		RolloutsEnabled: s.config.EnableRollouts,
+		DevMode:         s.config.DevMode,
 	}
 
 	s.ReturnJSON(w, res)

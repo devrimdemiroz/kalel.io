@@ -1,4 +1,5 @@
 //@ts-check
+/// <reference path="./types/custom.d.ts" />
 
 // ==========================================================================================
 // Event streaming for Kubernetes resources
@@ -9,22 +10,17 @@ import { layout, removeResource, addResource, updateResource } from './graph.js'
 import { getConfig } from './config.js'
 
 let state = 'connecting' // 'connecting', 'connected', 'disconnected', 'paused'
+/** @type {EventSource | null} */
+let updateStream = null
+// Module state is unique even when a duplicated tab inherits browser storage.
+const clientID =
+  globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`
 
 /**
- * Get a unique client ID for this session, stored in localStorage.
- * If no ID exists, generate a new one and store it.
+ * Get the client ID shared by fetch requests and SSE for this page runtime only.
  * @returns {string} The client ID
  */
 export function getClientId() {
-  let clientID = localStorage.getItem('clientId')
-
-  if (!clientID || clientID === 'undefined' || clientID === 'null') {
-    console.warn('🆔 No client ID found, generating a new one:' + clientID)
-    clientID = Math.random().toString(36).substring(2, 15)
-    localStorage.setItem('clientId', clientID)
-    return clientID
-  }
-
   return clientID
 }
 
@@ -33,14 +29,17 @@ export function getClientId() {
  * from the server for Kubernetes resources
  */
 export function initEventStreaming() {
+  if (updateStream) return
+
   console.log('🌐 Opening event stream...')
-  const updateStream = new EventSource(`updates?clientID=${getClientId()}`, {})
+  const stream = new EventSource(`updates?clientID=${encodeURIComponent(getClientId())}`, {})
+  updateStream = stream
   state = 'connecting'
   notifyStateChange()
 
   // Handle resource add events from the server
-  updateStream.addEventListener('add', async function (event) {
-    if (state === 'paused') return
+  stream.addEventListener('add', async function (event) {
+    if (updateStream !== stream) return
 
     /** @type {Resource} */
     let res
@@ -58,8 +57,8 @@ export function initEventStreaming() {
   })
 
   // Handle resource delete events from the server
-  updateStream.addEventListener('delete', async function (event) {
-    if (state === 'paused') return
+  stream.addEventListener('delete', async function (event) {
+    if (updateStream !== stream) return
 
     /** @type {Resource} */
     let res
@@ -77,8 +76,8 @@ export function initEventStreaming() {
   })
 
   // Handle resource update events from the server
-  updateStream.addEventListener('update', async function (event) {
-    if (state === 'paused') return
+  stream.addEventListener('update', async function (event) {
+    if (updateStream !== stream) return
 
     /** @type {Resource} */
     let res
@@ -91,22 +90,26 @@ export function initEventStreaming() {
 
     if (getConfig().debug) console.log('⬆️ Update resource:', res.kind, res.metadata.name)
 
-    updateResource(res)
+    await updateResource(res)
+    if (updateStream !== stream) return
+
     await layout()
   })
 
   // Notify when the stream is connected
-  updateStream.onopen = function () {
-    console.log('✅ Event stream ready:', updateStream.readyState === 1)
+  stream.onopen = function () {
+    if (updateStream !== stream) return
+    console.log('✅ Event stream ready:', stream.readyState === 1)
 
-    if (updateStream.readyState === 1) {
+    if (stream.readyState === 1) {
       state = 'connected'
     }
 
     notifyStateChange()
   }
 
-  updateStream.onerror = function (event) {
+  stream.onerror = function (event) {
+    if (updateStream !== stream) return
     console.error('‼️ Event stream error:', event)
     state = 'disconnected'
     notifyStateChange()
@@ -114,17 +117,13 @@ export function initEventStreaming() {
 }
 
 /**
- * Toggle the paused state of the event stream.
+ * Close the stream, including its automatic reconnect attempts.
  */
-export function togglePaused() {
-  if (state === 'paused') {
-    state = 'connected'
-  } else if (state === 'connected') {
-    state = 'paused'
-  } else {
-    return
-  }
-
+export function stopEventStreaming() {
+  const stream = updateStream
+  updateStream = null
+  stream?.close()
+  state = 'paused'
   notifyStateChange()
 }
 

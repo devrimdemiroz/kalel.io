@@ -207,10 +207,6 @@ func NewKubernetes(sseBroker *sse.Broker[KubeEvent], singleNamespace string) (*K
 		Informer().
 		AddEventHandler(getHandlerFuncs(sseBroker))
 
-	_, _ = factory.ForResource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}).
-		Informer().
-		AddEventHandler(getHandlerFuncs(sseBroker))
-
 	factory.Start(context.Background().Done())
 	factory.WaitForCacheSync(context.Background().Done())
 
@@ -274,7 +270,6 @@ func (k *Kubernetes) FetchNamespace(ns string) (map[string][]unstructured.Unstru
 	cronJobList, _ := k.GetResources(ns, "batch", "v1", "cronjobs")
 	ingressList, _ := k.GetResources(ns, "networking.k8s.io", "v1", "ingresses")
 	confMapList, _ := k.GetResources(ns, "", "v1", "configmaps")
-	secretList, _ := k.GetResources(ns, "", "v1", "secrets")
 	pvcList, _ := k.GetResources(ns, "", "v1", "persistentvolumeclaims")
 	eventList, _ := k.GetResources(ns, "", "v1", "events")
 	hpaList, _ := k.GetResources(ns, "autoscaling", "v2", "horizontalpodautoscalers")
@@ -289,7 +284,6 @@ func (k *Kubernetes) FetchNamespace(ns string) (map[string][]unstructured.Unstru
 	data["cronjobs"] = cronJobList
 	data["ingresses"] = ingressList
 	data["configmaps"] = confMapList
-	data["secrets"] = secretList
 	data["persistentvolumeclaims"] = pvcList
 	data["events"] = eventList
 	data["horizontalpodautoscalers"] = hpaList
@@ -309,8 +303,8 @@ func (k *Kubernetes) FetchNamespace(ns string) (map[string][]unstructured.Unstru
 			// Managed fields are simply clutter
 			items[i].SetManagedFields(nil)
 
-			// Loop through the data field of Secrets & ConfigMaps and redact it
-			if items[i].GetKind() == "Secret" || items[i].GetKind() == "ConfigMap" {
+			// Loop through ConfigMap data and redact it
+			if items[i].GetKind() == "ConfigMap" {
 				if data, ok := items[i].Object["data"].(map[string]interface{}); ok {
 					for k := range data {
 						data[k] = "*REDACTED*"

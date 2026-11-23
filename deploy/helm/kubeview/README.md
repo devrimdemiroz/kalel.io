@@ -23,6 +23,7 @@ Kubernetes cluster visualiser and visual explorer
 | singleNamespace | bool | `false` | Configure single namespace mode: `false` - Show resources in all namespaces. This is the default. `true` - Show resources only in namespace Kubeview is installed to. "string" - Only show resources in the named namespace (can be *different* from the one Kubeview is installed to). |
 | namespaceFilter | string | `""` | If you want to hide certain namespaces, use a regular expression here, e.g. `kube-\|aks-` |
 | disablePodLogs | bool | `false` | Set to true to disable access to pod logs from the API and UI. |
+| enableRollouts | bool | `false` | Opt in to declarative Deployment dry runs and applies. Grants only deployments create/patch in `singleNamespace`, or the release namespace when viewing all namespaces; never grants cluster-wide writes. Protect access before enabling. |
 | debug | bool | `false` | Set to true to enable debug mode, which outputs much more information in the logs |
 | ingress.enabled | bool | `false` | Expose the app via an Ingress |
 | ingress.host | string | `""` | The domain name to use for the Ingress, required if enabled |

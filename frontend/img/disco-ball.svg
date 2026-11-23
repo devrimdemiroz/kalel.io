@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title">
+  <title id="title">Monochrome reflective disco ball</title>
+  <defs>
+    <radialGradient id="silver" cx=".32" cy=".24" r=".8">
+      <stop stop-color="#fff"/>
+      <stop offset=".4" stop-color="#f3f3f3"/>
+      <stop offset=".72" stop-color="#dedede"/>
+      <stop offset="1" stop-color="#aaa"/>
+    </radialGradient>
+    <clipPath id="ball"><circle cx="64" cy="69" r="48"/></clipPath>
+  </defs>
+  <path d="M64 2v19" stroke="#fff" stroke-width="5"/>
+  <path d="M64 2v19" stroke="#252525" stroke-width="2"/>
+  <circle cx="64" cy="69" r="50" fill="#fff"/>
+  <circle cx="64" cy="69" r="48" fill="url(#silver)" stroke="#999" stroke-width="1"/>
+  <g clip-path="url(#ball)">
+    <path d="M18 45h23v15H17zm25-19h15v17H39zm17 19h17v15H60zm19 17h17v15H79zM42 79h16v16H42zm36 18h16v15H76z" fill="#f3f3f3"/>
+    <path d="M60 26h17v17H60zM23 62h17v15H23zm37 17h17v16H60zm36 0h17v16H96zM43 97h15v17H43z" fill="#bcbcbc"/>
+    <path d="M42 45h16v15H42zm36 0h17v15H78zM42 62h16v15H42zm18 35h15v18H60z" fill="#e5e5e5"/>
+    <g fill="none" stroke="#888" stroke-width=".75">
+      <path d="M16 44h96M16 61h96M16 78h96M16 96h96M28 28h72M28 112h72"/>
+      <ellipse cx="64" cy="69" rx="25" ry="48"/>
+      <path d="M59 21v96M78 23v92"/>
+    </g>
+    <g fill="none" stroke="#fff" stroke-opacity=".65">
+      <path d="M17 43h94M17 60h94M17 77h94M22 95h84M60 22v94M79 25v88"/>
+    </g>
+  </g>
+  <path d="m38 32 3 10 10 3-10 3-3 10-3-10-10-3 10-3zm65-15 2 7 7 2-7 2-2 7-2-7-7-2 7-2z" fill="#fff" stroke="#999" stroke-width=".75"/>
+</svg>

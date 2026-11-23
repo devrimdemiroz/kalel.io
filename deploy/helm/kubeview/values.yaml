@@ -14,6 +14,12 @@ namespaceFilter: ''
 # -- Set to true to disable access to pod logs from the API and UI.
 disablePodLogs: false
 
+# -- Opt in to declarative Deployment rollouts (including dry runs). Disabled by default.
+# Grants only create/patch on deployments in singleNamespace, or the release namespace when viewing all namespaces.
+# Other namespaces require an administrator-provided Role/RoleBinding; no cluster-wide write grants are created.
+# Protect access to KubeView before enabling: API callers can deploy workloads using its service account.
+enableRollouts: false
+
 # -- Set to true to enable debug mode, which outputs much more information in the logs
 debug: false
 

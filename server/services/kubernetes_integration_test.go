@@ -106,7 +106,7 @@ func TestNewKubernetes_SingleNamespace_Integration(t *testing.T) {
 	}
 
 	// Check that we get the expected resource types
-	expectedTypes := []string{"pods", "services", "deployments", "configmaps", "secrets"}
+	expectedTypes := []string{"pods", "services", "deployments", "configmaps"}
 	for _, resourceType := range expectedTypes {
 		if _, exists := data[resourceType]; !exists {
 			t.Errorf("Expected resource type %s to be present in namespace data", resourceType)

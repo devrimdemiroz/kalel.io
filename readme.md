@@ -10,6 +10,117 @@ Note: This is a v2 and complete rewrite the original KubeView project [see below
 [![GitHub pull requests](https://img.shields.io/github/issues-pr/benc-uk/kubeview)](https://github.com/benc-uk/kubeview/pulls)
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/benc-uk/kubeview?include_prereleases)](https://github.com/benc-uk/kubeview/releases)
 
+## Kalelio: principles for the next version
+
+Kalelio is the working name for this customized version of KubeView. Upcoming development follows these principles:
+
+- **Vanilla and organization-neutral:** Build a general-purpose Kubernetes visualization tool, with no dependency on Rabobank accounts, internal GitHub, infrastructure, or organization-specific workflows.
+- **No organization data in the project:** Do not commit or bundle real cluster data, credentials, kubeconfigs, internal endpoints, resource exports, logs, or screenshots. Use synthetic examples and test fixtures.
+- **Separate runtime access from source:** Keep connection details and authentication outside the repository. A connected session can display sensitive cluster information; generic source code does not make live data safe to publish.
+- **Independent customization:** Develop locally without requiring internal GitHub or contributions to upstream. Repository creation and publication are separate, explicit decisions.
+- **Respect the upstream license:** Preserve KubeView's MIT license and attribution.
+
+### Development agents
+
+Select the repository-scoped [kalel-manager](.github/agents/kalel-manager.agent.md)
+for an end-to-end request. It can involve the
+[UI](.github/agents/kalel-ui.agent.md),
+[visualization](.github/agents/kalel-visualization.agent.md), or
+[platform](.github/agents/kalel-platform.agent.md) developer for independent,
+bounded work; small changes need no delegation. These agents are guidance, not
+background services or an automatic deployment. Compare edited files with
+the embedded assets served by the preview, check browser interactions and console
+errors, and report tests and any remaining gaps before calling a change delivered.
+
+### Local interface
+
+See the [remaining-work plan](docs/remaining-work.md) for audited delivery gaps
+and unfinished verification. Source changes are not necessarily present in the
+running preview.
+
+The interface is branded **kalel.io** with a monochrome reflective disco-ball logo.
+Resources first render in Structured layout, then switch once to Organic using
+the rendered positions. Layout changes and live updates preserve the viewport.
+Refresh, screenshot export, theme, and connection controls stay in the upper menubar.
+The camera is icon-only, with a "graph export" hover tooltip.
+Layout, fit, events, spacing, shortened names, and resource-kind filters live in
+the right-side panel, visibly separated from the canvas. Control-panel labels are lowercase.
+The current layout is marked with a darker border and inset indicator.
+The experimental **containers** button adds faint, neutral, translucent layers
+for the namespace and its two columns, plus padded organic component overlays
+behind the live nodes. The overlays lighten a dark canvas or darken a light
+canvas only slightly; components do not have opaque rectangular backgrounds.
+A compound force layout arranges resources organically inside each group and
+spaces the groups apart. Live nodes remain clickable, and existing
+relationships, filters, theme switching and refresh modes still apply.
+Select Structured or Organic to remove the containers. This view is opt-in
+and is not saved as the startup layout.
+
+Membership uses namespace, release (`app.kubernetes.io/instance`), application
+(`app.kubernetes.io/name`, falling back to `app`) and component labels.
+Children inherit their owner's group; unlabelled Services can join a group
+when their selector resolves unambiguously to pods in that group. CNPG-labelled
+database resources are recognized by `cnpg.io/cluster`. Unmapped resources are
+shown explicitly as **Other resources (unmapped)**; missing components are
+never fabricated. The view covers the selected namespace only, not external
+clients, managed databases or collector workloads in other namespaces.
+
+| Component label or application | Column | Mapping |
+| --- | --- | --- |
+| Application server, jobs, migration, transform agent | Application | Distinct application/component groups |
+| OpenTelemetry collectors | Application | Existing labelled workloads only; not the management server |
+| `nats`, `kafka`, `rabbitmq` | Supporting | Messaging component/application label |
+| `prometheus`, `grafana`, `loki`, `tempo`, `jaeger` | Supporting | Observability component/application label |
+| `postgres`, `postgresql`, `redis`, `mysql`, `mariadb` | Supporting | Database component/application label, or CNPG cluster label |
+| `elasticsearch`, `opensearch` | Supporting | Search component/application label |
+| Unknown or unlabelled resources | Application | Label-derived group or explicit unmapped group |
+
+The graph panel's **edge style** selector offers straight, orthogonal polyline,
+quadratic, cubic, horizontal, and vertical curves. The choice is saved in this
+browser and applies to current and future edges without resetting the view.
+Vertical curves remain the default. G6's radial edge requires a tree hierarchy,
+so it is not offered for the resource relationship graph.
+The canvas is white by default, independently of the interface theme. The graph
+panel's **white background** quick button switches between white and a
+theme-matched canvas, and remembers the choice in this browser.
+Node labels use a system font with canvas-aware text colour and bold text for selected nodes.
+Only Services show their exposed ports above the icon, using the same font and
+canvas-aware text colour as resource labels, without filled badges. Labels,
+their backgrounds, and connection lines stay readable after theme changes and live updates. Workloads,
+Ingress backend references, and connection lines do not repeat port numbers.
+Non-TCP Service ports include their protocol; backend target ports are not substituted.
+The inline **Cluster** combobox shows the shortened connected destination or
+`offline`, with the full endpoint available on hover. Each server currently
+exposes one cluster, so the selector lists only that configured destination;
+it does not switch kubeconfig contexts. Cluster endpoint and mode are also
+available in About.
+The copyright button opens a separate About screen
+that credits KubeView and identifies kalel.io as its open-source fork. The
+theme switch displays the current light or dark theme, and the choice is saved
+in this browser. Buttons and refresh controls follow that theme, including
+hover, selected, disabled, focus, and loading states. Dialog headers, footers,
+and success notifications use neutral theme colours rather than green.
+
+The inline refresh button and selector offer live updates, 15-second (`15sn`) and
+1-minute (`1min`) polling, off (manual refresh), and offline.
+Offline keeps the current view without making
+new resource requests; it is not a persistent downloaded copy of the cluster.
+Refresh choices are remembered, except that Offline resumes as Manual after a
+page reload so initial namespace discovery and data loading remain available.
+
+### Declarative Deployment rollouts
+
+Rollout writes are **disabled by default**. When explicitly enabled with
+`ENABLE_ROLLOUTS=true` (Helm: `enableRollouts: true`), the rollout dialog accepts a
+single `apps/v1 Deployment` YAML manifest for the selected namespace. Preview it
+using Kubernetes server-side dry-run, then explicitly confirm Apply.
+Server-side apply uses its own field manager without forcing ownership conflicts.
+
+This feature uses the server's Kubernetes credentials, not per-browser credentials.
+Only enable it behind trusted access controls; the application does not provide
+user authentication. Existing deployments remain read-only by default. Offline
+mode must be exited before previewing or applying a rollout.
+
 ## 📜 Details
 
 ![](./docs/Screenshot2025-07-08192538.png)
@@ -17,9 +128,9 @@ Note: This is a v2 and complete rewrite the original KubeView project [see below
 
 ### Features
 
-- Provides a secure read-only view of Kubernetes resources, arranged in a logical graph, linked with derived relationships.
+- Provides a read-only-by-default view of Kubernetes resources, arranged in a logical graph, linked with derived relationships.
 - Real-time updates using Server-Sent Events (SSE) so view dynamically updates as resources change
-- Supports a wide range of common and core Kubernetes resource types, including Pods, Deployments, Services, ConfigMaps, Secrets, Ingresses, and more
+- Supports a wide range of common and core Kubernetes resource types, including Pods, Deployments, Services, ConfigMaps, Ingresses, and more; does not list or watch Secrets
 - Colour coding (Red/Green/Grey) of resources based on their status and health
 - Side info panel allows you to view further details of resources, common properties as well as labels and annotations.
 - Display events which have occurred in the namespace, also updated in real-time.
@@ -87,6 +198,7 @@ A `clientID` is used to identify the client and send updates for the resources t
 - `/api/namespaces`: Returns a list of namespaces in the cluster.
 - `/api/fetch/{namespace}?clientID={clientID}`: Returns a list of resources in the cluster for the specified namespace.
 - `/api/logs/{namespace}/{podname}`: Fetches logs for a specific pod in the specified namespace.
+- `POST /api/rollout/{namespace}?dryRun=true|false`: Preview or explicitly apply a Deployment manifest when rollouts are enabled.
 - `/api/status`: Returns the status of the KubeView server, including the version and build information.
 - `/updates?clientID={clientID}`: Establishes a Server-Sent Events (SSE) connection for real-time updates.
 - `/health`: Simple health endpoint to check if the server is running.
@@ -107,9 +219,11 @@ The application itself does not enforce any authentication or authorization, it 
 The following environment variables are supported:
 
 - `PORT`: The port on which the KubeView server will listen. Default is `8000`.
+- `BIND_ADDRESS`: Optional listen address. Use `127.0.0.1` for local-only previews; the default listens on all interfaces.
 - `SINGLE_NAMESPACE`: If set, KubeView will only show resources in the specified namespace
 - `NAMESPACE_FILTER`: A regex pattern to filter namespaces. If set, namespaces that match the pattern will be _excluded_ e.g. `NAMESPACE_FILTER=^kube-` will not show system namespaces starting with `kube-`.
 - `DISABLE_POD_LOGS`: If set to `true` or `1`, pod logs will not be available via the API, or to view in the UI. This is useful for environments where you do not want to expose pod logs to users. Default is `false`.
+- `ENABLE_ROLLOUTS`: Opt in to declarative Deployment preview/apply. Default is `false`; enable only with trusted access and appropriate Kubernetes permissions.
 
 In addition the standard `KUBECONFIG` environment variable can be used to specify a custom path to the Kubernetes configuration file. If not set, it defaults to `$HOME/.kube/config`.
 

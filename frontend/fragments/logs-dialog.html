@@ -2,8 +2,8 @@
 <div class="modal is-active" x-data="sidePanel" x-show="showLogsDialog" x-cloak>
   <div class="modal-background" @click="showLogsDialog = false"></div>
   <div class="modal-card" style="width:80vw">
-    <header class="modal-card-head has-background-primary py-3">
-      <p class="modal-card-title has-text-black" x-text="`Pod Logs: ${panelData.props.name}`"></p>
+    <header class="modal-card-head py-3">
+      <p class="modal-card-title" x-text="`Pod Logs: ${panelData.props.name}`"></p>
       <button @click="showLogs(panelData.props.name)" class="button is-small is-dark mr-3">
         <span class="icon"><i class="fas fa-rotate"></i></span>
         <span>Update Logs</span>

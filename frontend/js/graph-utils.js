@@ -1,4 +1,5 @@
 //@ts-check
+/// <reference path="./types/custom.d.ts" />
 
 import { getConfig } from './config.js'
 
@@ -24,14 +25,40 @@ export const forceLayout = {
 }
 
 /**
+ * Use the current spacing even after a layout preset has already been loaded.
+ * @param {string} name
+ */
+export function getLayout(name) {
+  if (name === 'containers') {
+    return {
+      type: 'combo-combined',
+      comboPadding: 70,
+      nodeSize: 150,
+      layout: {
+        type: 'force',
+        preventOverlap: true,
+        nodeSize: 'node.size',
+        nodeSpacing: getConfig().spacing || 100,
+        linkDistance: 200 + (getConfig().spacing || 100),
+        iterations: 200,
+      },
+    }
+  }
+  return {
+    ...(name === 'organic' ? forceLayout : dagreLayout),
+    nodeSize: getConfig().spacing || 100,
+  }
+}
+
+/**
  * Filters the graph nodes and edges based on the provided label query.
  * @param {any} graph The G6 graph instance.
  * @param {string} labelQuery The label query to filter nodes by. If empty, all nodes are shown.
  * @returns {number} The number of visible nodes after filtering.
  */
 export function nodeVisByLabel(graph, labelQuery) {
-  // If query is empty, show all nodes
-  if (!labelQuery) {
+  // Kind and empty-set filters remain in effect when search is cleared.
+  if (!labelQuery && graph.getNodeData().every((node) => node.data?.filterVisible !== false)) {
     // Show all nodes by removing any visibility styling
     graph.updateNodeData(
       graph.getNodeData().map((node) => ({
@@ -60,7 +87,7 @@ export function nodeVisByLabel(graph, labelQuery) {
     const allNodes = graph.getNodeData()
     const updatedNodes = allNodes.map((node) => {
       const labelText = node.style?.labelText || ''
-      const matches = labelText.toLowerCase().includes(labelQuery)
+      const matches = node.data?.filterVisible !== false && labelText.toLowerCase().includes(labelQuery)
 
       return {
         ...node,
@@ -139,6 +166,13 @@ export async function fitToVisible(graph, animation = true) {
         // If we can't get position, skip this node
         console.warn(`Could not get position for node ${node.id}`)
       }
+    }
+
+    // Container titles and padding must remain in frame even when resource filters are active.
+    for (const combo of graph.getComboData()) {
+      if (combo.combo) continue
+      const bounds = graph.getElementRenderBounds(combo.id)
+      positions.push(bounds.min, bounds.max)
     }
 
     if (positions.length === 0) {

@@ -239,24 +239,19 @@ func TestKubernetes_FetchNamespace(t *testing.T) {
 	}
 
 	// Check that data contains expected resource types
-	expectedTypes := []string{"pods", "services", "deployments", "secrets", "configmaps"}
+	expectedTypes := []string{"pods", "services", "deployments", "configmaps"}
 	for _, resourceType := range expectedTypes {
 		if _, exists := data[resourceType]; !exists {
 			t.Errorf("Expected resource type %s to be present in data", resourceType)
 		}
 	}
 
-	// Check that secrets are redacted
-	if secrets, ok := data["secrets"]; ok && len(secrets) > 0 {
-		secretData, exists := secrets[0].Object["data"].(map[string]interface{})
-		if !exists {
-			t.Error("Expected secret to have data field")
-		} else {
-			for key, value := range secretData {
-				if value != "*REDACTED*" {
-					t.Errorf("Expected secret data field %s to be redacted, got %v", key, value)
-				}
-			}
+	if _, exists := data["secrets"]; exists {
+		t.Error("Secrets must not be included in namespace data")
+	}
+	for _, action := range k.dynamicClient.(*fake.FakeDynamicClient).Actions() {
+		if action.GetVerb() == "list" && action.GetResource().Resource == "secrets" {
+			t.Error("FetchNamespace must not list secrets")
 		}
 	}
 }

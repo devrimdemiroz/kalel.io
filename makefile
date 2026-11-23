@@ -15,7 +15,7 @@ GOOS ?= linux
 GOARCH ?= amd64
 
 .EXPORT_ALL_VARIABLES:
-.PHONY: help lint lint-fix run build generate clean image push check-vars helm-docs helm-package test test-unit test-integration test-coverage
+.PHONY: help lint lint-fix run build generate clean image push check-vars helm-docs helm-package test test-unit test-frontend test-chart test-integration test-coverage
 .DEFAULT_GOAL := help
 
 help: ## 💬 This help message :)
@@ -47,13 +47,23 @@ build: ## 🔨 Build application binary
 		-ldflags "-X 'main.version=$(VERSION)' -X 'main.buildInfo=$(BUILD_INFO)'" \
 		./server
 
-test: test-unit ## 🧪 Run all tests (unit tests only by default)
+test: test-unit test-frontend ## 🧪 Run backend and frontend tests without a cluster
 	@figlet $@ || true
 
-test-unit: ## 🧪 Run unit tests only
+test-unit test-chart test-integration test-coverage: export GOOS := $(shell go env GOHOSTOS)
+test-unit test-chart test-integration test-coverage: export GOARCH := $(shell go env GOHOSTARCH)
+
+test-unit: ## 🧪 Run backend unit tests only
 	@figlet $@ || true
 	@echo "🚀 Running unit tests..."
-	go test -v ./server/services/ -short
+	go test -v ./server/... -short
+
+test-frontend: ## 🧪 Run all frontend regression tests (requires Node.js)
+	node --experimental-vm-modules --test frontend/tests/*.test.mjs
+
+test-chart: ## 🧪 Lint and render-check Helm rollout permissions (requires Helm)
+	helm lint deploy/helm/kubeview
+	go test -v ./deploy/helm/kubeview -short
 
 test-integration: ## 🧪 Run integration tests (requires Kubernetes cluster)
 	@figlet $@ || true

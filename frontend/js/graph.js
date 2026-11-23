@@ -9,7 +9,6 @@
 
 import { findResByName, queryRes, remove, store } from './cache.js'
 import { getConfig } from './config.js'
-import { fitToVisible } from './graph-utils.js'
 import { graph } from './main.js'
 
 const ICON_PATH = 'public/img/res'
@@ -19,9 +18,11 @@ const ICON_PATH = 'public/img/res'
  * @param {Resource} res The k8s resource to add
  */
 export function addResource(res) {
+  if (res.kind === 'Secret') return
   // Endpoints & EndpointSlice are stored in the cache but not added to the graph
   if (res.kind === 'Endpoints' || res.kind === 'EndpointSlice') {
     store(res)
+    processLinks(res)
     return
   }
 
@@ -32,26 +33,15 @@ export function addResource(res) {
     return
   }
 
-  // Hide resources that are not in the filter
-  if (getConfig().resFilter && !getConfig().resFilter.includes(res.kind)) {
-    if (getConfig().debug) console.warn(`🍇 Skipping resource of kind ${res.kind} as it is not in the filter`)
-    return
-  }
-
-  if (shouldHideEmptyReplicaSet(res)) {
-    if (getConfig().debug) console.warn(`🍇 Skipping ReplicaSet ${res.metadata?.name} with zero replicas`)
-    return
-  }
-
   try {
     graph.addNodeData([makeNode(res)])
+    store(res)
     processLinks(res)
 
     // Dispatch a custom event to notify that the node has been added
     const event = new CustomEvent('nodeAdded', { detail: res.metadata.uid })
     window.dispatchEvent(event)
 
-    store(res)
     return res.metadata.uid
   } catch (e) {
     if (getConfig().debug) {
@@ -66,9 +56,10 @@ export function addResource(res) {
  * @param {Resource} res The k8s resource to update
  */
 export async function updateResource(res) {
+  if (res.kind === 'Secret') return
   // Endpoints are stored in the lookup cache but not added to the graph
-  if (res.kind === 'Endpoints') {
-    store
+  if (res.kind === 'Endpoints' || res.kind === 'EndpointSlice') {
+    store(res)
     processLinks(res)
     return
   }
@@ -80,25 +71,16 @@ export async function updateResource(res) {
     return
   }
 
-  if (shouldHideEmptyReplicaSet(res)) {
-    removeResource(res)
+  const node = graph.getNodeData().find((item) => item.id === res.metadata.uid)
+  if (!node) {
+    addResource(res)
     return
   }
 
-  try {
-    const node = graph.getNodeData(res.metadata.uid)
-    if (node.length === 0) {
-      // If the node does not exist, we add it
-      if (getConfig().debug) console.warn(`🍒 Node with ID ${res.metadata.uid} not found, adding it`)
-      addResource(res)
-      processLinks(res)
-      return
-    }
-  } catch (_err) {}
-
   // Actual update is here
   try {
-    graph.updateNodeData([makeNode(res)])
+    const updated = makeNode(res)
+    graph.updateNodeData([{ ...node, ...updated, style: { ...node.style, ...updated.style } }])
   } catch (_err) {}
 
   store(res)
@@ -152,24 +134,52 @@ export function removeResource(res) {
 export function addEdge(sourceId, targetId) {
   try {
     // Check the source and target IDs are valid
-    if (graph.getNodeData(sourceId).length === 0 || graph.getNodeData(targetId).length === 0) {
+    const nodeIds = new Set(graph.getNodeData().map((node) => node.id))
+    if (!nodeIds.has(sourceId) || !nodeIds.has(targetId)) {
       if (getConfig().debug) {
         console.warn(`🚸 Unable to add link: ${sourceId} to ${targetId}`)
       }
       return
     }
 
-    graph.addEdgeData([
-      {
-        source: sourceId,
-        target: targetId,
-        id: `${sourceId}.${targetId}`,
-      },
-    ])
+    const id = `${sourceId}.${targetId}`
+    const existing = graph.getEdgeData().find((edge) => edge.id === id)
+    if (existing) {
+      graph.updateEdgeData([{ id, style: { ...existing.style, labelText: '' } }])
+    } else {
+      graph.addEdgeData([{ source: sourceId, target: targetId, id, style: { labelText: '' } }])
+    }
   } catch (_err) {
     if (getConfig().debug) {
       console.warn(`🚸 Unable to add link: ${sourceId} to ${targetId}`)
     }
+  }
+}
+
+/**
+ * @param {Array<{port?: number, protocol?: string}>} ports
+ * @returns {string}
+ */
+function portLabels(ports = []) {
+  const labels = (ports || [])
+    .filter((port) => (port.port || 0) > 0)
+    .map((port) => {
+      const protocol = port.protocol && port.protocol !== 'TCP' ? `/${port.protocol}` : ''
+      return `${port.port}${protocol}`
+    })
+  return [...new Set(labels)].join(', ')
+}
+
+/**
+ * @param {Resource} res
+ */
+function ingressLinks(res) {
+  const backends = (res.spec?.rules || []).flatMap((rule) => (rule.http?.paths || []).map((path) => path.backend))
+  if (res.spec?.defaultBackend) backends.push(res.spec.defaultBackend)
+  for (const backend of backends) {
+    const service = backend?.service && findResByName('Service', backend.service.name)
+    if (!service) continue
+    addEdge(res.metadata.uid, service.metadata.uid)
   }
 }
 
@@ -187,29 +197,16 @@ export function processLinks(res) {
 
   // If the resource is a Ingress, we link it to the Service via the backend service name
   if (res.kind === 'Ingress') {
-    if (res.spec?.rules) {
-      for (const rule of res.spec.rules) {
-        if (rule.http && rule.http.paths) {
-          for (const path of rule.http.paths) {
-            if (path.backend && path.backend.service && path.backend.service.name) {
-              if (getConfig().debug) console.log(`🔗 Linking Ingress ${res.metadata.name} to Service ${path.backend.service.name}`)
-              const serviceName = path.backend.service.name
-              const service = findResByName('Service', serviceName)
-              if (service) {
-                addEdge(res.metadata.uid, service.metadata.uid)
-              }
-            }
-          }
-        }
-      }
-    }
-    const defaultBackendServiceName = res.spec.defaultBackend?.service.name
-    if (defaultBackendServiceName) {
-      const defaultBackendService = findResByName('Service', defaultBackendServiceName)
-      if (defaultBackendService) {
-        addEdge(res.metadata.uid, defaultBackendService.metadata.uid)
-      }
-    }
+    ingressLinks(res)
+  }
+
+  if (res.kind === 'Service') {
+    const dependents = queryRes((resource) =>
+      resource.kind === 'Ingress' ||
+      (resource.kind === 'Endpoints' && resource.metadata.name === res.metadata.name) ||
+      (resource.kind === 'EndpointSlice' && resource.metadata.labels?.['kubernetes.io/service-name'] === res.metadata.name),
+    )
+    for (const dependent of dependents) processLinks(dependent)
   }
 
   // If the resource is a Endpoint find the Service and link it to the Pod with the matching IP
@@ -347,16 +344,22 @@ function makeNode(res) {
   if (colourSuffix !== '') {
     colourSuffix = '-' + colourSuffix
   }
+  const ports = res.kind === 'Service' ? portLabels(res.spec?.ports) : ''
+  const filterVisible = (!getConfig().resFilter || getConfig().resFilter.includes(res.kind)) && !shouldHideEmptyReplicaSet(res)
 
   return {
     id: res.metadata.uid,
     style: {
       src: `${ICON_PATH}/${res.kind.toLowerCase() + colourSuffix}.svg`,
       labelText: label,
+      labelFill: getConfig().whiteBackground !== false || getConfig().theme === 'light' ? '#242a38' : '#ffffff',
+      visibility: filterVisible ? 'visible' : 'hidden',
+      badges: ports ? [{ text: ports, placement: 'top', offsetY: -10 }] : [],
     },
     data: {
       kind: res.kind,
       ip: res.status?.podIP || res.status?.hostIP || null,
+      filterVisible,
     },
   }
 }
@@ -440,6 +443,7 @@ function statusColour(res) {
 let layoutCallBackId = null
 export async function layout() {
   try {
+    window.dispatchEvent(new CustomEvent('resourceGraphUpdated'))
     await graph.draw()
 
     if (layoutCallBackId) {
@@ -450,10 +454,11 @@ export async function layout() {
       graph.stopLayout()
       try {
         await graph.layout()
-
-        // Call custom fit view that only considers visible nodes
-        await fitToVisible(graph, true)
-      } catch (_err) {}
+      } catch (err) {
+        console.error('💥 Failed to update graph layout:', err)
+      }
     }, 80)
-  } catch (_err) {}
+  } catch (err) {
+    console.error('💥 Failed to draw graph updates:', err)
+  }
 }

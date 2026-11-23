@@ -11,7 +11,7 @@
         @click="showLabels=!showLabels; showAnno=false">Labels</button>
       <button class="button is-small is-light mr-3" :class="{'is-outlined':!showAnno}"
         @click="showAnno=!showAnno; showLabels=false">Annotations</button>
-      <button class="button is-small is-primary" @click="showLogs(panelData.props.name)" x-show="isPod">
+      <button class="button is-small is-light" @click="showLogs(panelData.props.name)" x-show="isPod" :disabled="cfg.refreshMode === 'offline'">
         <span class="icon"><i class="fas fa-rectangle-list"></i></span>
         <span>Pod Logs</span>
       </button>

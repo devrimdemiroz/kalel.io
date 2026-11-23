@@ -7,6 +7,7 @@ package main
 
 import (
 	"log"
+	"net"
 	"net/http"
 	"strconv"
 
@@ -36,7 +37,7 @@ func main() {
 
 	//nolint:gosec
 	httpServer := &http.Server{
-		Addr:    ":" + strconv.Itoa(config.Port),
+		Addr:    net.JoinHostPort(config.BindAddress, strconv.Itoa(config.Port)),
 		Handler: r,
 		// Do NOT set timeouts it messes with the SSE connection
 		// Also why we don't use api.StartServer

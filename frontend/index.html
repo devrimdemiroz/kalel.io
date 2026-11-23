@@ -2,8 +2,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1, maximum-scale=1" />
-    <title>KubeView</title>
-    <link rel="icon" href="public/img/icon.png" type="image/png" />
+    <title>kalel.io</title>
+    <link rel="icon" href="public/img/disco-ball.svg" type="image/svg+xml" />
 
     <!-- External CSS libs -->
     <link rel="stylesheet" href="public/css/bulma.min.css" />
@@ -16,19 +16,34 @@
   </head>
 
   <body x-data="mainApp">
-    <nav class="navbar is-dark" role="navigation">
-      <div class="navbar-brand">
+    <nav class="navbar app-navbar is-flex is-flex-wrap-wrap" :class="cfg.theme === 'dark' ? 'is-dark' : 'is-light'" role="navigation">
+      <div class="navbar-brand is-flex is-justify-content-space-between" style="width: 100%">
         <div class="navbar-item">
-          <img src="public/img/icon.png" alt="Logo" width="32" height="32" />
-          <span class="is-size-4 has-text-weight-semibold">KubeView</span>
+          <img src="public/img/disco-ball.svg" alt="Reflective disco ball logo" width="32" height="32" />
+          <span class="is-size-4 has-text-weight-semibold">kalel.io</span>
+        </div>
+        <div class="navbar-item is-flex ml-auto" role="group" aria-label="Theme and connection">
+          <button class="button is-light theme-switch" type="button" role="switch" @click="toggleTheme()" :aria-checked="cfg.theme === 'dark'" aria-label="Dark theme" title="Switch theme">
+            <span class="theme-switch-track" aria-hidden="true"></span>
+            <span x-text="cfg.theme">light</span>
+          </button>
+          <div class="select cluster-select">
+            <select id="clusterSelect" aria-label="Cluster" :title="serviceMetadata.clusterHost || 'No cluster information available'"
+              :disabled="!serviceMetadata.clusterHost">
+              <option :value="serviceMetadata.clusterHost" x-text="connectionLabel">offline</option>
+            </select>
+          </div>
+          <button class="button is-light about-button" type="button" @click="showAboutDialog = true" title="About" aria-label="About">
+            <span aria-hidden="true">©</span>
+          </button>
         </div>
       </div>
       <div class="navbar-start">
-        <div class="navbar-item is-hidden-touch">
+        <div class="navbar-item">
           <!-- Main namespace selector -->
           <div class="select">
             <template x-if="namespaces !== null">
-              <select x-model="namespace" :disabled="isLoading || namespaces.length === 1">
+              <select x-model="namespace" :disabled="isLoading || namespaces.length === 1" aria-label="Namespace" title="Namespace">
                 <option value="" disabled>Choose a namespace</option>
                 <template x-for="ns in namespaces" :key="ns">
                   <option :value="ns" x-text="ns" :selected="ns == namespace"></option>
@@ -36,44 +51,15 @@
               </select>
             </template>
             <template x-if="namespaces === null">
-              <select>
+              <select disabled aria-label="Namespace" title="Namespace">
                 <option value="" disabled selected>🔁 Loading...</option>
               </select>
             </template>
           </div>
-          <button class="button is-info" type="button" @click="refreshAll()" :disabled="isLoading" title="Refresh Namespaces">
-            <span class="icon"><i class="fas fa-rotate"></i></span>
-          </button>
-
-          <button
-            class="button is-info is-hidden-touch is-hidden-desktop-only"
-            @click="showEventsDialog = !showEventsDialog"
-            title="Events"
-            :disabled="isLoading || showWelcome"
-          >
-            <span class="icon"><i class="fas fa-list-check"></i></span>
-            <span>Events</span>
-          </button>
-
-          <!-- Toolbar of buttons -->
-          <div class="is-hidden-touch">
-            <button class="button is-primary" @click="toolbarFit()" title="Fit View" :disabled="isLoading || showWelcome">
-              <span class="icon"><i class="fas fa-expand"></i></span>
-            </button>
-            <button class="button is-primary" @click="toolbarDagreLayout()" title="Layout structured" :disabled="isLoading || showWelcome">
-              <span class="icon"><i class="fas fa-network-wired"></i></span>
-            </button>
-            <button class="button is-primary" @click="toolbarForceLayout()" title="Layout organic" :disabled="isLoading || showWelcome">
-              <span class="icon"><i class="fas fa-circle-nodes"></i></span>
-            </button>
-            <button class="button is-primary" @click="toolbarSavePNG()" title="Save View as PNG" :disabled="isLoading || showWelcome">
-              <span class="icon"><i class="fas fa-camera"></i></span>
-            </button>
-          </div>
         </div>
 
         <!-- Search bar -->
-        <div class="navbar-item is-hidden-touch is-hidden-desktop-only">
+        <div class="navbar-item">
           <div class="field">
             <p class="control has-icons-left">
               <input class="input" type="text" placeholder="Search resources..." x-model.debounce="searchQuery" />
@@ -84,36 +70,119 @@
           </div>
         </div>
       </div>
-
-      <!-- Right side of the navbar -->
-      <div class="navbar-end is-hidden-touch is-hidden-desktop-only">
-        <div class="navbar-item">
-          <div class="buttons">
-            <!-- Connection indicator -->
-            <button class="button" :class="connStateClass" id="eventStatusIcon" @click="togglePaused()">
-              <span class="icon"><i class="fas fa-plug"></i></span>
-              <span x-text="connState.charAt(0).toUpperCase()+connState.slice(1)">Connecting</span>
-            </button>
-            <button class="button is-primary" @click="showConfigDialog = true">
-              <span class="icon">
-                <i class="fas fa-wrench"></i>
-              </span>
-            </button>
-          </div>
+      <div class="navbar-actions" aria-label="Refresh and graph export controls">
+        <div class="navbar-item refresh-control" role="group" aria-label="Refresh controls">
+          <button class="button is-light refresh-now" type="button" @click="refreshAll()"
+            :disabled="isLoading || isRefreshing || cfg.refreshMode === 'offline'" title="Refresh now" aria-label="Refresh now">
+            <span class="icon"><i class="fas fa-rotate" aria-hidden="true"></i></span>
+          </button>
+          <select id="refreshMode" x-model="cfg.refreshMode" aria-label="Refresh mode" title="Refresh mode">
+            <option value="live" title="Live updates (SSE)">Live</option>
+            <option value="15s" title="Refresh every 15 seconds">15sn</option>
+            <option value="1m" title="Refresh every minute">1min</option>
+            <option value="manual" title="Stop automatic updates">Off</option>
+            <option value="offline" title="Disconnect and work offline">Offline</option>
+          </select>
         </div>
+        <button class="button is-light" type="button" @click="toolbarSavePNG()" :disabled="isLoading || showWelcome"
+          title="graph export" aria-label="graph export">
+          <span class="icon"><i class="fas fa-camera" aria-hidden="true"></i></span>
+        </button>
       </div>
     </nav>
 
+    <aside class="app-controls" aria-label="View controls and resource filters">
+      <section class="sidebar-view-options" aria-labelledby="viewOptionsHeading">
+        <h2 class="filter-heading" id="viewOptionsHeading">view</h2>
+        <div class="filter-options">
+          <label class="checkbox filter-option">
+            <input type="checkbox" x-model="cfg.shortenNames" @change="applyViewOptions()" />
+            <span>short names</span>
+          </label>
+          <label class="label" for="nodeSpacing">spacing</label>
+          <input id="nodeSpacing" type="range" x-model.number="cfg.spacing" @change="applyViewOptions()" min="10" max="300" step="1" />
+          <label class="checkbox filter-option">
+            <input type="checkbox" x-model="cfg.debug" @change="saveViewPreferences()" />
+            <span>debug</span>
+          </label>
+        </div>
+      </section>
+      <section class="sidebar-graph-options" aria-labelledby="graphOptionsHeading">
+        <h2 class="filter-heading" id="graphOptionsHeading">graph</h2>
+        <div class="sidebar-action-buttons">
+          <button class="button is-light" type="button" @click="toolbarFit()" :disabled="isLoading || showWelcome" title="fit view" aria-label="fit view">
+            <span class="icon"><i class="fas fa-expand" aria-hidden="true"></i></span>
+            <span>fit</span>
+          </button>
+          <button class="button is-light" type="button" @click="showEventsDialog = !showEventsDialog" :disabled="isLoading || showWelcome" title="events" aria-label="events">
+            <span class="icon"><i class="fas fa-list-check" aria-hidden="true"></i></span>
+            <span>events</span>
+          </button>
+          <button class="button is-light" type="button" @click="toolbarDagreLayout()" :class="{ 'is-selected': activeLayout === 'structured' }" :aria-pressed="activeLayout === 'structured'" :disabled="isLoading || showWelcome || isChangingLayout" title="structured layout" aria-label="structured layout">
+            <span class="icon"><i class="fas fa-network-wired" aria-hidden="true"></i></span>
+            <span>structured</span>
+          </button>
+          <button class="button is-light" type="button" @click="toolbarForceLayout()" :class="{ 'is-selected': activeLayout === 'organic' }" :aria-pressed="activeLayout === 'organic'" :disabled="isLoading || showWelcome || isChangingLayout" title="organic layout" aria-label="organic layout">
+            <span class="icon"><i class="fas fa-circle-nodes" aria-hidden="true"></i></span>
+            <span>organic</span>
+          </button>
+          <button class="button is-light" type="button" @click="toolbarContainersLayout()" :class="{ 'is-selected': activeLayout === 'containers' }" :aria-pressed="activeLayout === 'containers'" :disabled="isLoading || showWelcome || isChangingLayout" title="experimental component containers" aria-label="containers layout">
+            <span class="icon"><i class="fas fa-object-group" aria-hidden="true"></i></span>
+            <span>containers</span>
+          </button>
+          <button class="button is-light" type="button" @click="toggleWhiteBackground()" :class="{ 'is-selected': cfg.whiteBackground }"
+            :aria-pressed="cfg.whiteBackground" :disabled="isLoading || isChangingBackground" title="white background" aria-label="white background">
+            <span class="icon"><i class="fas fa-palette" aria-hidden="true"></i></span>
+            <span>white background</span>
+          </button>
+          <button class="button is-light" type="button" @click="showRolloutDialog = true" x-show="rolloutsEnabled" x-cloak
+            :disabled="isLoading || !namespace || cfg.refreshMode === 'offline'" title="deploy YAML" aria-label="deploy YAML">
+            <span class="icon"><i class="fas fa-rocket" aria-hidden="true"></i></span>
+            <span>deploy</span>
+          </button>
+        </div>
+        <div class="filter-options mt-3">
+          <label class="label" for="edgeStyle">edge style</label>
+          <div class="select is-small is-fullwidth">
+            <select id="edgeStyle" x-model="cfg.edgeStyle" @change="applyEdgeStyle()" :disabled="isLoading || isChangingEdgeStyle">
+              <template x-for="style in edgeStyles" :key="style.value">
+                <option :value="style.value" x-text="style.label"></option>
+              </template>
+            </select>
+          </div>
+        </div>
+      </section>
+      <h2 class="filter-heading">filter</h2>
+      <template x-for="group in resourceFilterGroups" :key="group.name">
+        <details class="filter-group" open>
+          <summary x-text="group.name"></summary>
+          <div class="filter-options">
+            <template x-for="resource in group.resources" :key="resource.kind">
+              <label class="checkbox filter-option">
+                <input type="checkbox" :checked="cfg.resFilter.includes(resource.kind)"
+                  @change="setResourceFilter(resource.kind, $event.target.checked)" :disabled="isLoading" />
+                <span x-text="resource.label"></span>
+              </label>
+            </template>
+            <label class="checkbox filter-option" x-show="group.name === 'workloads' && cfg.resFilter.includes('ReplicaSet')" x-cloak>
+              <input type="checkbox" x-model="cfg.hideEmptyReplicaSets" @change="applyResourceFilters()" :disabled="isLoading" />
+              <span>hide empty sets</span>
+            </label>
+          </div>
+        </details>
+      </template>
+    </aside>
+
     <div class="notification is-danger mx-5 mt-5" x-show="errorMessage" x-cloak>
       <p class="title is-3">💀 A terrible thing happened!</p>
-      <div x-html="errorMessage"></div>
+      <div class="is-family-monospace" style="white-space: pre-wrap" x-text="errorMessage"></div>
       <br />
-      <button class="button is-outline" @click="window.location.reload()">Reload</button>
+      <button class="button is-light" @click="window.location.reload()">Reload</button>
     </div>
 
     <div class="notification is-light mx-5 mt-5" id="welcome" x-show="showWelcome" x-cloak>
       <div class="mb-4 has-background-light p-2 rounded">
-        <img src="public/img/icon.png" class="logo" /><span class="logotext">Welcome to KubeView</span>
+        <img src="public/img/disco-ball.svg" class="logo" alt="Reflective disco ball logo" /><span class="logotext">Welcome to kalel.io</span>
       </div>
       <p class="has-text-dark">
         To get started, select a namespace from the dropdown above.<br />
@@ -122,7 +191,7 @@
     </div>
 
     <!-- This is the main view where the graph will be rendered -->
-    <div id="mainView" x-show="!errorMessage" x-cloak></div>
+    <div id="mainView" :class="{ 'theme-background': !cfg.whiteBackground }" x-show="!errorMessage" x-cloak></div>
 
     <div id="loading" x-show="isLoading" x-cloak>
       <img src="public/img/loading.svg" width="200" height="200" />
@@ -130,9 +199,10 @@
 
     <!-- To reduce size of the index page some parts are loaded dynamically -->
     <!-- See loader.js -->
-    <div data-fragment="config-dialog"></div>
+    <div data-fragment="about-dialog"></div>
     <div data-fragment="logs-dialog"></div>
     <div data-fragment="side-panel"></div>
     <div data-fragment="events-dialog"></div>
+    <div data-fragment="rollout-dialog"></div>
   </body>
 </html>

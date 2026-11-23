@@ -232,6 +232,7 @@ export default () => ({
   },
 
   async showLogs(podName) {
+    if (this.cfg.refreshMode === 'offline') return
     console.log(`📜 Fetching logs for pod ${podName} in namespace ${this.namespace}`)
     this.isLoading = true
 
